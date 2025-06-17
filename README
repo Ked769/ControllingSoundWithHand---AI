@@ -1,5 +1,2 @@
-RUNS ONLY IN PYTHON 3.7.3 WITH MODULES MENTIONED:
-cv2
-mediapipe
-math
-pynput
+prefers python 3.8 venv
+pip install opencv-python mediapipe pycaw comtypes
