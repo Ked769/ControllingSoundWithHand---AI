@@ -3,6 +3,7 @@ from pynput import *
 
 def on_press(key):
     if key == keyboard.Key.delete:
+        print("KILLING")
         os.system("taskkill /f /im main.exe")
         exit()
         return False

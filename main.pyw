@@ -2,15 +2,14 @@
 import cv2
 import mediapipe as mp
 import math
-from pynput import *
 import os
 #############################################################
 
-class handDetector():
+class HandDetector:
 
-    def __init__(self,mode=False, maxHands=2, model_complexity=0, detectionCon=0.5, trackCon=0.5):
+    def __init__(self,mode=False, max_hands=2, detectionCon=0.5, trackCon=0.5):
         self.mode = mode
-        self.maxHands = maxHands
+        self.maxHands = max_hands
         self.detectionCon = detectionCon
         self.trackCon = trackCon
         self.model_complexity = 0
@@ -24,7 +23,8 @@ class handDetector():
         self.results = self.hands.process(imgRGB)
         if self.results.multi_hand_landmarks:
             for handLms in self.results.multi_hand_landmarks:
-                if draw:{self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)}
+                if draw:
+                    self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
         return img,self.results
     
     def findPosition(self, img, handNo=0, draw =True):
@@ -39,7 +39,7 @@ class handDetector():
             return lmList
 
     
-
+"""
 def main():
     cap = cv2.VideoCapture(0)
     detector = handDetector()
@@ -51,7 +51,7 @@ def main():
         if len(lmList)!=0: print(lmList[4], lmList[0])
         cv2.imshow("Image", img)
         cv2.waitKey(1)
-
+"""
 
 def num_to_range(num, inMin, inMax, outMin, outMax):
   return outMin + (float(num - inMin) / float(inMax - inMin) * (outMax - outMin))
@@ -65,7 +65,7 @@ def main():
     cap = cv2.VideoCapture(0)
     cap.set(3, wCam)
     cap.set(4, hCam)
-    detector = handDetector(detectionCon = 0.9)
+    detector = HandDetector(detectionCon = 0.9)
 
     while True:
         success, img = cap.read()
