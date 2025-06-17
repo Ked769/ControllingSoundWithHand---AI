@@ -1,9 +1,9 @@
 #############################################################
-import cv2
-import mediapipe as mp
+import cv2 # type: ignore
+import mediapipe as mp # type: ignore
 import math
 import os
-import sys
+import sys # type: ignore
 import platform
 #############################################################
 
@@ -12,8 +12,8 @@ IS_LINUX = platform.system() == "Linux"
 
 if IS_WINDOWS:
     from ctypes import cast, POINTER
-    from comtypes import CLSCTX_ALL
-    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+    from comtypes import CLSCTX_ALL # type: ignore
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume # type: ignore
 
 class HandDetector:
 
