@@ -1,0 +1,6 @@
+opencv-python
+mediapipe
+numpy
+# Windows-only dependencies:
+pycaw; platform_system == "Windows"
+comtypes; platform_system == "Windows"

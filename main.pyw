@@ -3,10 +3,17 @@ import cv2
 import mediapipe as mp
 import math
 import os
-from ctypes import cast, POINTER
-from comtypes import CLSCTX_ALL
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+import sys
+import platform
 #############################################################
+
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux"
+
+if IS_WINDOWS:
+    from ctypes import cast, POINTER
+    from comtypes import CLSCTX_ALL
+    from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
 class HandDetector:
 
@@ -41,8 +48,6 @@ class HandDetector:
                         lmList.append([id,cx,cy])
             return lmList
 
-    
-
 def num_to_range(num, inMin, inMax, outMin, outMax):
     return outMin + (float(num - inMin) / float(inMax - inMin) * (outMax - outMin))
 
@@ -50,23 +55,37 @@ def num_to_range(num, inMin, inMax, outMin, outMax):
 wCam, hCam = 320, 240
 #####################
 
+def set_volume_windows(vol):
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+    volume.SetMasterVolumeLevel(vol, None)
+
+def get_volume_range_windows():
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+    return volume.GetVolumeRange()
+
+def set_volume_linux(vol_percentage):
+    # Example using amixer (ALSA). Requires amixer installed.
+    # You may need to adjust 'Master' to your system's mixer name.
+    try:
+        os.system(f"amixer -D pulse sset Master {int(vol_percentage)}%")
+    except Exception as e:
+        print(f"Could not set volume: {e}")
+
 def main():
     cap = cv2.VideoCapture(0)
     cap.set(3, wCam)
     cap.set(4, hCam)
     detector = HandDetector(detectionCon = 0.9)
 
-    # Initialize audio control
-    devices = AudioUtilities.GetSpeakers()
-    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-    volume = cast(interface, POINTER(IAudioEndpointVolume))
-    
-    # Get the volume range from the system
-    volRange = volume.GetVolumeRange()
-    minVol = volRange[0]
-    maxVol = volRange[1]
-    
-    # Add smoothing
+    if IS_WINDOWS:
+        minVol, maxVol, _ = get_volume_range_windows()
+    else:
+        minVol, maxVol = 0, 100  # Linux: use 0-100%
+
     smoothing = 5
     previous_vol = 0
 
@@ -93,8 +112,13 @@ def main():
             # Apply smoothing
             vol = (vol + previous_vol * (smoothing - 1)) / smoothing
             previous_vol = vol
-            
-            volume.SetMasterVolumeLevel(vol, None)
+
+            if IS_WINDOWS:
+                set_volume_windows(vol)
+                volPercentage = int(num_to_range(vol, minVol, maxVol, 0, 100))
+            else:
+                volPercentage = int(vol)
+                set_volume_linux(volPercentage)
 
             # Adjust visual feedback ranges
             if length < 20:
@@ -107,14 +131,18 @@ def main():
                 cv2.circle(img, (cx,cy), 10, (255,255,255), cv2.FILLED)  # High
 
             # Display volume percentage
-            volPercentage = int(num_to_range(vol, minVol, maxVol, 0, 100))
             cv2.putText(img, f'{volPercentage}%', (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 
                        1, (255, 0, 0), 2)
 
         cv2.imshow("Image", img)
-        cv2.waitKey(1) 
+        key = cv2.waitKey(1)
+        if key == 27:  # ESC key to kill/exit
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 ###############################################################################################################
 if __name__ =="__main__":
     main()
-##############################################################################################################
+###############################################################################################################
