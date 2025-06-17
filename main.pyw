@@ -3,6 +3,9 @@ import cv2
 import mediapipe as mp
 import math
 import os
+from ctypes import cast, POINTER
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 #############################################################
 
 class HandDetector:
@@ -39,23 +42,9 @@ class HandDetector:
             return lmList
 
     
-"""
-def main():
-    cap = cv2.VideoCapture(0)
-    detector = handDetector()
-
-    while True:
-        success, img = cap.read()
-        img, results = detector.findHands(img, draw=False)
-        lmList = detector.findPosition(img)
-        if len(lmList)!=0: print(lmList[4], lmList[0])
-        cv2.imshow("Image", img)
-        cv2.waitKey(1)
-"""
 
 def num_to_range(num, inMin, inMax, outMin, outMax):
-  return outMin + (float(num - inMin) / float(inMax - inMin) * (outMax - outMin))
-
+    return outMin + (float(num - inMin) / float(inMax - inMin) * (outMax - outMin))
 
 #####################
 wCam, hCam = 320, 240
@@ -67,17 +56,28 @@ def main():
     cap.set(4, hCam)
     detector = HandDetector(detectionCon = 0.9)
 
+    # Initialize audio control
+    devices = AudioUtilities.GetSpeakers()
+    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+    volume = cast(interface, POINTER(IAudioEndpointVolume))
+    
+    # Get the volume range from the system
+    volRange = volume.GetVolumeRange()
+    minVol = volRange[0]
+    maxVol = volRange[1]
+    
+    # Add smoothing
+    smoothing = 5
+    previous_vol = 0
+
     while True:
         success, img = cap.read()
         img, results = detector.findHands(img,draw=True)
         lmList = detector.findPosition(img, draw=False)
         if len(lmList)!=0:
-            print(lmList[4], lmList[8])
-
             x1, y1 = lmList[4][1], lmList[4][2]
             x2, y2 = lmList[8][1], lmList[8][2]
             cx, cy = (x1 + x2)//2, (y1 + y2)//2
-            print(lmList)
 
             cv2.circle(img, (x1,y1), 10, (0,255,0), cv2.FILLED)
             cv2.circle(img, (x2,y2), 10, (0,255,0), cv2.FILLED)
@@ -85,26 +85,36 @@ def main():
             cv2.circle(img, (cx,cy), 10, (0,255,255), cv2.FILLED)
 
             length = math.hypot(x2-x1, y2-y1)
-            print(length)
 
-            #Hand Range: 5 - 100
-            n = num_to_range(length,0,125,0,100)
-            os.system('SoundVolumeView.exe /SetVolume "2- High Definition Audio Device\Device\Speakers" {0}'.format(n))        
+            # Adjusted hand range: 15 - 150 for more sensitivity
+            vol = num_to_range(length, 15, 150, minVol, maxVol)
+            vol = min(maxVol, max(minVol, vol))  # Ensure volume stays within bounds
+            
+            # Apply smoothing
+            vol = (vol + previous_vol * (smoothing - 1)) / smoothing
+            previous_vol = vol
+            
+            volume.SetMasterVolumeLevel(vol, None)
 
-            if length < 30:
-                cv2.circle(img, (cx,cy), 10, (0,0,255), cv2.FILLED)
-            if length > 70:
-                cv2.circle(img, (cx,cy), 10, (0,255,0), cv2.FILLED)
-            if length > 90:
-                cv2.circle(img, (cx,cy), 10, (255,255,255), cv2.FILLED)
-            if length < 15:
-                cv2.circle(img, (cx,cy), 10, (0,0,0), cv2.FILLED)
+            # Adjust visual feedback ranges
+            if length < 20:
+                cv2.circle(img, (cx,cy), 10, (0,0,255), cv2.FILLED)  # Very low
+            elif length < 50:
+                cv2.circle(img, (cx,cy), 10, (0,165,255), cv2.FILLED)  # Low
+            elif length < 100:
+                cv2.circle(img, (cx,cy), 10, (0,255,0), cv2.FILLED)  # Medium
+            else:
+                cv2.circle(img, (cx,cy), 10, (255,255,255), cv2.FILLED)  # High
+
+            # Display volume percentage
+            volPercentage = int(num_to_range(vol, minVol, maxVol, 0, 100))
+            cv2.putText(img, f'{volPercentage}%', (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 
+                       1, (255, 0, 0), 2)
+
         cv2.imshow("Image", img)
         cv2.waitKey(1) 
-
 
 ###############################################################################################################
 if __name__ =="__main__":
     main()
 ##############################################################################################################
-
